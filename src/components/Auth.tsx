@@ -28,6 +28,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            emailRedirectTo: 'https://todo-app-lzzpuzmq.devinapps.com/'
+          }
         })
         if (error) throw error
         setMessage('確認メールを送信しました。メールをチェックしてアカウントを確認してください。')
