@@ -158,7 +158,7 @@ function App() {
     )
   }
 
-  if (!user && false) {
+  if (!user) {
     return <Auth onAuthSuccess={() => {}} />
   }
 
