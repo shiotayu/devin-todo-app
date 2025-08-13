@@ -1,3 +1,17 @@
+DO
+$do$
+BEGIN
+   IF NOT EXISTS (
+      SELECT FROM pg_catalog.pg_roles
+      WHERE  rolname = 'todo_user') THEN
+
+      CREATE ROLE todo_user LOGIN PASSWORD 'todo_password_123';
+   END IF;
+END
+$do$;
+
+GRANT ALL PRIVILEGES ON DATABASE todo_app TO todo_user;
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE todos (
@@ -11,6 +25,9 @@ CREATE TABLE todos (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+GRANT ALL PRIVILEGES ON TABLE todos TO todo_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO todo_user;
 
 CREATE INDEX idx_todos_user_id ON todos(user_id);
 CREATE INDEX idx_todos_created_at ON todos(created_at);
