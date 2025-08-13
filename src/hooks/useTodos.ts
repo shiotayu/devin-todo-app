@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { database } from '../lib/database'
 
 export type Priority = 'low' | 'medium' | 'high'
 export type Category = 'work' | 'personal' | 'shopping' | 'health' | 'other'
@@ -33,26 +33,8 @@ export function useTodos(userId: string | undefined) {
     if (!userId) return
 
     try {
-      const { data, error } = await supabase
-        .from('todos')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      const formattedTodos = data.map(todo => ({
-        id: todo.id,
-        text: todo.text,
-        completed: todo.completed,
-        dueDate: todo.due_date || undefined,
-        category: todo.category,
-        priority: todo.priority,
-        created_at: todo.created_at,
-        updated_at: todo.updated_at
-      }))
-
-      setTodos(formattedTodos)
+      const todos = await database.fetchTodos(userId)
+      setTodos(todos)
     } catch (error) {
       console.error('Error fetching todos:', error)
     } finally {
@@ -64,32 +46,7 @@ export function useTodos(userId: string | undefined) {
     if (!userId) return
 
     try {
-      const { data, error } = await supabase
-        .from('todos')
-        .insert({
-          user_id: userId,
-          text,
-          due_date: dueDate || null,
-          category,
-          priority,
-          completed: false
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      const newTodo: Todo = {
-        id: data.id,
-        text: data.text,
-        completed: data.completed,
-        dueDate: data.due_date || undefined,
-        category: data.category,
-        priority: data.priority,
-        created_at: data.created_at,
-        updated_at: data.updated_at
-      }
-
+      const newTodo = await database.addTodo(userId, text, dueDate, category, priority)
       setTodos(prev => [newTodo, ...prev])
     } catch (error) {
       console.error('Error adding todo:', error)
@@ -98,20 +55,7 @@ export function useTodos(userId: string | undefined) {
 
   const updateTodo = async (id: string, updates: Partial<Pick<Todo, 'text' | 'completed' | 'dueDate' | 'category' | 'priority'>>) => {
     try {
-      const { error } = await supabase
-        .from('todos')
-        .update({
-          text: updates.text,
-          completed: updates.completed,
-          due_date: updates.dueDate || null,
-          category: updates.category,
-          priority: updates.priority,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-
-      if (error) throw error
-
+      await database.updateTodo(id, updates)
       setTodos(prev => prev.map(todo => 
         todo.id === id ? { ...todo, ...updates } : todo
       ))
@@ -122,13 +66,7 @@ export function useTodos(userId: string | undefined) {
 
   const deleteTodo = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('todos')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-
+      await database.deleteTodo(id)
       setTodos(prev => prev.filter(todo => todo.id !== id))
     } catch (error) {
       console.error('Error deleting todo:', error)
