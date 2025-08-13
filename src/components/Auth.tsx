@@ -29,7 +29,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           email,
           password,
           options: {
-            emailRedirectTo: 'https://todo-app-lzzpuzmq.devinapps.com/'
+            emailRedirectTo: window.location.origin
           }
         })
         if (error) throw error
