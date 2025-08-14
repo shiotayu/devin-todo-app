@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Build and Deploy to Production
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,12 +25,20 @@ jobs:
     - name: Build application
       run: npm run build
       
-    - name: Deploy to Devin Apps
-      env:
-        DEVIN_DEPLOY_TOKEN: ${{ secrets.DEVIN_DEPLOY_TOKEN }}
-      run: |
-        # Install deployment CLI if needed
-        npm install -g @devin/deploy-cli || echo "CLI already installed"
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+        retention-days: 30
         
-        # Deploy using Devin's deployment service
-        devin-deploy --app-id todo-app-lzzpuzmq --build-dir ./dist --token $DEVIN_DEPLOY_TOKEN
+    - name: Notify deployment ready
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📦 Build artifacts uploaded and ready for deployment"
+        echo "🚀 To deploy manually, download the dist-files artifact and use Devin's deployment command"
+        echo ""
+        echo "Manual deployment command:"
+        echo "  devin deploy-frontend --dir ./dist"
+        echo ""
+        echo "Current deployment URL: https://todo-app-lzzpuzmq.devinapps.com/"
