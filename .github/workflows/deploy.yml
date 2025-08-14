@@ -1,0 +1,57 @@
+name: Build and Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+        retention-days: 30
+        
+    - name: Deploy to Production
+      env:
+        DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+      run: |
+        echo "🚀 Starting automatic deployment..."
+        
+        # Deploy using Devin's deployment API
+        curl -X POST "https://api.devin.ai/v1/deployments" \
+          -H "Authorization: Bearer $DEVIN_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "app_id": "todo-app-lzzpuzmq",
+            "build_path": "./dist",
+            "environment": "production"
+          }' || {
+            echo "❌ Deployment failed via API, falling back to manual notification"
+            echo "📦 Build artifacts are available for manual deployment"
+            echo "Manual deployment command: devin deploy-frontend --dir ./dist"
+            exit 1
+          }
+        
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 Application deployed to: https://todo-app-lzzpuzmq.devinapps.com/"
