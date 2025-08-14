@@ -1,0 +1,44 @@
+name: Build and Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-files
+        path: dist/
+        retention-days: 30
+        
+    - name: Notify deployment ready
+      run: |
+        echo "✅ Build completed successfully!"
+        echo "📦 Build artifacts uploaded and ready for deployment"
+        echo "🚀 To deploy manually, download the dist-files artifact and use Devin's deployment command"
+        echo ""
+        echo "Manual deployment command:"
+        echo "  devin deploy-frontend --dir ./dist"
+        echo ""
+        echo "Current deployment URL: https://todo-app-lzzpuzmq.devinapps.com/"
