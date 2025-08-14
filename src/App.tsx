@@ -1,32 +1,74 @@
 import { useState, useMemo } from 'react'
-import { Plus, Check, X, Edit2, Trash2, Calendar, Search, AlertCircle } from 'lucide-react'
+import { Plus, Check, X, Edit2, Trash2, Calendar, Search, AlertCircle, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { useAuth } from './hooks/useAuth'
+import { useTodos, type Priority, type Category } from './hooks/useTodos'
+import Auth from './components/Auth'
 import './App.css'
 
-type Priority = 'low' | 'medium' | 'high'
-type Category = 'work' | 'personal' | 'shopping' | 'health' | 'other'
+const getDaysUntilDue = (dueDate: string) => {
+  const today = new Date()
+  const due = new Date(dueDate)
+  const diffTime = due.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  return diffDays
+}
 
-interface Todo {
-  id: number
-  text: string
-  completed: boolean
-  dueDate?: string
-  category: Category
-  priority: Priority
+const getPriorityColor = (priority: Priority) => {
+  switch (priority) {
+    case 'high': return 'destructive'
+    case 'medium': return 'secondary'
+    case 'low': return 'outline'
+    default: return 'secondary'
+  }
+}
+
+const getCategoryColor = (category: Category) => {
+  switch (category) {
+    case 'work': return 'bg-blue-100 text-blue-800'
+    case 'personal': return 'bg-green-100 text-green-800'
+    case 'shopping': return 'bg-purple-100 text-purple-800'
+    case 'health': return 'bg-red-100 text-red-800'
+    case 'other': return 'bg-gray-100 text-gray-800'
+    default: return 'bg-gray-100 text-gray-800'
+  }
+}
+
+const getCategoryLabel = (category: Category) => {
+  switch (category) {
+    case 'work': return '仕事'
+    case 'personal': return '個人'
+    case 'shopping': return '買い物'
+    case 'health': return '健康'
+    case 'other': return 'その他'
+    default: return 'その他'
+  }
+}
+
+const getPriorityLabel = (priority: Priority) => {
+  switch (priority) {
+    case 'high': return '高'
+    case 'medium': return '中'
+    case 'low': return '低'
+    default: return '中'
+  }
 }
 
 function App() {
-  const [todos, setTodos] = useState<Todo[]>([])
+  const { user, loading: authLoading, signOut } = useAuth()
+  
+  const { todos, loading: todosLoading, addTodo, updateTodo, deleteTodo } = useTodos(user?.id)
+  
   const [inputText, setInputText] = useState('')
   const [inputDueDate, setInputDueDate] = useState('')
   const [inputCategory, setInputCategory] = useState<Category>('personal')
   const [inputPriority, setInputPriority] = useState<Priority>('medium')
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [editDueDate, setEditDueDate] = useState('')
   const [editCategory, setEditCategory] = useState<Category>('personal')
@@ -36,17 +78,20 @@ function App() {
   const [filterPriority, setFilterPriority] = useState<Priority | 'all'>('all')
   const [showCompleted, setShowCompleted] = useState(true)
 
-  const addTodo = () => {
+  const filteredTodos = useMemo(() => {
+    return todos.filter(todo => {
+      const matchesSearch = todo.text.toLowerCase().includes(searchText.toLowerCase())
+      const matchesCategory = filterCategory === 'all' || todo.category === filterCategory
+      const matchesPriority = filterPriority === 'all' || todo.priority === filterPriority
+      const matchesCompleted = showCompleted || !todo.completed
+      
+      return matchesSearch && matchesCategory && matchesPriority && matchesCompleted
+    })
+  }, [todos, searchText, filterCategory, filterPriority, showCompleted])
+
+  const handleAddTodo = async () => {
     if (inputText.trim() !== '') {
-      const newTodo: Todo = {
-        id: Date.now(),
-        text: inputText.trim(),
-        completed: false,
-        dueDate: inputDueDate || undefined,
-        category: inputCategory,
-        priority: inputPriority
-      }
-      setTodos([...todos, newTodo])
+      await addTodo(inputText.trim(), inputDueDate || undefined, inputCategory, inputPriority)
       setInputText('')
       setInputDueDate('')
       setInputCategory('personal')
@@ -54,17 +99,18 @@ function App() {
     }
   }
 
-  const deleteTodo = (id: number) => {
-    setTodos(todos.filter(todo => todo.id !== id))
+  const handleDeleteTodo = async (id: string) => {
+    await deleteTodo(id)
   }
 
-  const toggleComplete = (id: number) => {
-    setTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ))
+  const toggleComplete = async (id: string) => {
+    const todo = todos.find(t => t.id === id)
+    if (todo) {
+      await updateTodo(id, { completed: !todo.completed })
+    }
   }
 
-  const startEdit = (id: number, text: string, dueDate?: string, category: Category = 'personal', priority: Priority = 'medium') => {
+  const startEdit = (id: string, text: string, dueDate?: string, category: Category = 'personal', priority: Priority = 'medium') => {
     setEditingId(id)
     setEditText(text)
     setEditDueDate(dueDate || '')
@@ -72,17 +118,14 @@ function App() {
     setEditPriority(priority)
   }
 
-  const saveEdit = (id: number) => {
+  const saveEdit = async (id: string) => {
     if (editText.trim() !== '') {
-      setTodos(todos.map(todo =>
-        todo.id === id ? { 
-          ...todo, 
-          text: editText.trim(),
-          dueDate: editDueDate || undefined,
-          category: editCategory,
-          priority: editPriority
-        } : todo
-      ))
+      await updateTodo(id, {
+        text: editText.trim(),
+        dueDate: editDueDate || undefined,
+        category: editCategory,
+        priority: editPriority
+      })
     }
     setEditingId(null)
     setEditText('')
@@ -105,64 +148,20 @@ function App() {
     }
   }
 
-  const getDaysUntilDue = (dueDate: string) => {
-    const today = new Date()
-    const due = new Date(dueDate)
-    const diffTime = due.getTime() - today.getTime()
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    return diffDays
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl font-semibold text-gray-700">読み込み中...</div>
+        </div>
+      </div>
+    )
   }
 
-  const getPriorityColor = (priority: Priority) => {
-    switch (priority) {
-      case 'high': return 'destructive'
-      case 'medium': return 'secondary'
-      case 'low': return 'outline'
-      default: return 'secondary'
-    }
+  if (!user) {
+    return <Auth onAuthSuccess={() => {}} />
   }
 
-  const getCategoryColor = (category: Category) => {
-    switch (category) {
-      case 'work': return 'bg-blue-100 text-blue-800'
-      case 'personal': return 'bg-green-100 text-green-800'
-      case 'shopping': return 'bg-purple-100 text-purple-800'
-      case 'health': return 'bg-red-100 text-red-800'
-      case 'other': return 'bg-gray-100 text-gray-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getCategoryLabel = (category: Category) => {
-    switch (category) {
-      case 'work': return '仕事'
-      case 'personal': return '個人'
-      case 'shopping': return '買い物'
-      case 'health': return '健康'
-      case 'other': return 'その他'
-      default: return 'その他'
-    }
-  }
-
-  const getPriorityLabel = (priority: Priority) => {
-    switch (priority) {
-      case 'high': return '高'
-      case 'medium': return '中'
-      case 'low': return '低'
-      default: return '中'
-    }
-  }
-
-  const filteredTodos = useMemo(() => {
-    return todos.filter(todo => {
-      const matchesSearch = todo.text.toLowerCase().includes(searchText.toLowerCase())
-      const matchesCategory = filterCategory === 'all' || todo.category === filterCategory
-      const matchesPriority = filterPriority === 'all' || todo.priority === filterPriority
-      const matchesCompleted = showCompleted || !todo.completed
-      
-      return matchesSearch && matchesCategory && matchesPriority && matchesCompleted
-    })
-  }, [todos, searchText, filterCategory, filterPriority, showCompleted])
 
   const completedCount = todos.filter(todo => todo.completed).length
   const totalCount = todos.length
@@ -173,9 +172,23 @@ function App() {
       <div className="max-w-4xl mx-auto">
         <Card className="shadow-lg">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
-              TODOアプリ
-            </CardTitle>
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex-1"></div>
+              <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-800">
+                TODOアプリ
+              </CardTitle>
+              <div className="flex-1 flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={signOut}
+                  className="flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  ログアウト
+                </Button>
+              </div>
+            </div>
             <div className="space-y-2">
               <p className="text-gray-600">
                 完了: {completedCount} / {totalCount}
@@ -192,7 +205,7 @@ function App() {
                 placeholder="新しいタスクを入力..."
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={(e) => handleKeyPress(e, addTodo)}
+                onKeyPress={(e) => handleKeyPress(e, handleAddTodo)}
                 className="lg:col-span-1"
               />
               <div className="flex gap-2 lg:col-span-2">
@@ -232,7 +245,7 @@ function App() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button onClick={addTodo} className="lg:col-span-1">
+              <Button onClick={handleAddTodo} className="lg:col-span-1">
                 <Plus className="w-4 h-4 mr-2" />
                 追加
               </Button>
@@ -285,7 +298,11 @@ function App() {
             </div>
 
             <div className="space-y-2">
-              {filteredTodos.length === 0 ? (
+              {todosLoading ? (
+                <div className="text-center py-8 text-gray-500">
+                  読み込み中...
+                </div>
+              ) : filteredTodos.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   {todos.length === 0 ? 'タスクがありません。新しいタスクを追加してください。' : '条件に一致するタスクがありません。'}
                 </div>
@@ -407,7 +424,7 @@ function App() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => deleteTodo(todo.id)}
+                                onClick={() => handleDeleteTodo(todo.id)}
                                 className="p-1"
                               >
                                 <Trash2 className="w-4 h-4 text-red-600" />
