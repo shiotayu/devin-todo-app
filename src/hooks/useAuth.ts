@@ -10,9 +10,15 @@ export function useAuth() {
     const isDevelopment = import.meta.env.DEV
     
     if (isDevelopment) {
+      let mockUserId = sessionStorage.getItem('mockUserId')
+      if (!mockUserId) {
+        mockUserId = crypto.randomUUID()
+        sessionStorage.setItem('mockUserId', mockUserId)
+      }
+      
       const mockUser = {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        email: 'test@example.com',
+        id: mockUserId,
+        email: `dev-user-${mockUserId.slice(0, 8)}@example.com`,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         app_metadata: {},

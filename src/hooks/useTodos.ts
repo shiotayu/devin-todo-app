@@ -97,6 +97,8 @@ export function useTodos(userId: string | undefined) {
   }
 
   const updateTodo = async (id: string, updates: Partial<Pick<Todo, 'text' | 'completed' | 'dueDate' | 'category' | 'priority'>>) => {
+    if (!userId) return
+    
     try {
       const { error } = await supabase
         .from('todos')
@@ -109,6 +111,7 @@ export function useTodos(userId: string | undefined) {
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
+        .eq('user_id', userId)
 
       if (error) throw error
 
@@ -121,11 +124,14 @@ export function useTodos(userId: string | undefined) {
   }
 
   const deleteTodo = async (id: string) => {
+    if (!userId) return
+    
     try {
       const { error } = await supabase
         .from('todos')
         .delete()
         .eq('id', id)
+        .eq('user_id', userId)
 
       if (error) throw error
 
