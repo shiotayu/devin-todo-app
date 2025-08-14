@@ -68,11 +68,15 @@ app.post('/api/todos', async (req, res) => {
 app.put('/api/todos/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { text, completed, dueDate, category, priority } = req.body
+    const { text, completed, dueDate, category, priority, userId } = req.body
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' })
+    }
     
     await pool.query(
-      'UPDATE todos SET text = COALESCE($1, text), completed = COALESCE($2, completed), due_date = COALESCE($3, due_date), category = COALESCE($4, category), priority = COALESCE($5, priority), updated_at = NOW() WHERE id = $6',
-      [text || null, completed !== undefined ? completed : null, dueDate || null, category || null, priority || null, id]
+      'UPDATE todos SET text = COALESCE($1, text), completed = COALESCE($2, completed), due_date = COALESCE($3, due_date), category = COALESCE($4, category), priority = COALESCE($5, priority), updated_at = NOW() WHERE id = $6 AND user_id = $7',
+      [text || null, completed !== undefined ? completed : null, dueDate || null, category || null, priority || null, id, userId]
     )
     
     res.json({ success: true })
@@ -85,7 +89,13 @@ app.put('/api/todos/:id', async (req, res) => {
 app.delete('/api/todos/:id', async (req, res) => {
   try {
     const { id } = req.params
-    await pool.query('DELETE FROM todos WHERE id = $1', [id])
+    const { userId } = req.query
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' })
+    }
+    
+    await pool.query('DELETE FROM todos WHERE id = $1 AND user_id = $2', [id, userId])
     res.json({ success: true })
   } catch (error) {
     console.error('Error deleting todo:', error)

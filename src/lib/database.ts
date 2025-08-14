@@ -94,7 +94,7 @@ export const database = {
     }
   },
 
-  async updateTodo(id: string, updates: Partial<Pick<Todo, 'text' | 'completed' | 'dueDate' | 'category' | 'priority'>>): Promise<void> {
+  async updateTodo(userId: string, id: string, updates: Partial<Pick<Todo, 'text' | 'completed' | 'dueDate' | 'category' | 'priority'>>): Promise<void> {
     if (isLocalDev) {
       try {
         const response = await fetch(`${LOCAL_API_BASE}/todos/${id}`, {
@@ -102,7 +102,7 @@ export const database = {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(updates)
+          body: JSON.stringify({ ...updates, userId })
         })
         
         if (!response.ok) {
@@ -124,15 +124,16 @@ export const database = {
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
+        .eq('user_id', userId)
       
       if (error) throw error
     }
   },
 
-  async deleteTodo(id: string): Promise<void> {
+  async deleteTodo(userId: string, id: string): Promise<void> {
     if (isLocalDev) {
       try {
-        const response = await fetch(`${LOCAL_API_BASE}/todos/${id}`, {
+        const response = await fetch(`${LOCAL_API_BASE}/todos/${id}?userId=${userId}`, {
           method: 'DELETE'
         })
         
@@ -148,6 +149,7 @@ export const database = {
         .from('todos')
         .delete()
         .eq('id', id)
+        .eq('user_id', userId)
       
       if (error) throw error
     }

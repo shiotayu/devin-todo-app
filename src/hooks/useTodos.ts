@@ -54,8 +54,10 @@ export function useTodos(userId: string | undefined) {
   }
 
   const updateTodo = async (id: string, updates: Partial<Pick<Todo, 'text' | 'completed' | 'dueDate' | 'category' | 'priority'>>) => {
+    if (!userId) return
+    
     try {
-      await database.updateTodo(id, updates)
+      await database.updateTodo(userId, id, updates)
       setTodos(prev => prev.map(todo => 
         todo.id === id ? { ...todo, ...updates } : todo
       ))
@@ -65,8 +67,10 @@ export function useTodos(userId: string | undefined) {
   }
 
   const deleteTodo = async (id: string) => {
+    if (!userId) return
+    
     try {
-      await database.deleteTodo(id)
+      await database.deleteTodo(userId, id)
       setTodos(prev => prev.filter(todo => todo.id !== id))
     } catch (error) {
       console.error('Error deleting todo:', error)
