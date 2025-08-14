@@ -1,0 +1,39 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Deploy to Devin Apps
+      env:
+        DEVIN_API_TOKEN: ${{ secrets.DEVIN_API_TOKEN }}
+      run: |
+        curl -X POST \
+          -H "Authorization: Bearer $DEVIN_API_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "app_id": "todo-app-lzzpuzmq",
+            "build_dir": "./dist"
+          }' \
+          https://api.devinapps.com/deploy
