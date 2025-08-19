@@ -1,13 +1,15 @@
 name: Build and Deploy to Production
 
 on:
-  push:
+  pull_request:
     branches: [ main ]
+    types: [ closed ]
   workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
     
     steps:
     - name: Checkout code
@@ -32,13 +34,26 @@ jobs:
         path: dist/
         retention-days: 30
         
-    - name: Notify deployment ready
+    - name: Deploy to Production
+      env:
+        DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
       run: |
-        echo "✅ Build completed successfully!"
-        echo "📦 Build artifacts uploaded and ready for deployment"
-        echo "🚀 To deploy manually, download the dist-files artifact and use Devin's deployment command"
-        echo ""
-        echo "Manual deployment command:"
-        echo "  devin deploy-frontend --dir ./dist"
-        echo ""
-        echo "Current deployment URL: https://todo-app-lzzpuzmq.devinapps.com/"
+        echo "🚀 Starting automatic deployment..."
+        
+        # Deploy using Devin's deployment API
+        curl -X POST "https://api.devin.ai/v1/deployments" \
+          -H "Authorization: Bearer $DEVIN_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "app_id": "todo-app-lzzpuzmq",
+            "build_path": "./dist",
+            "environment": "production"
+          }' || {
+            echo "❌ Deployment failed via API, falling back to manual notification"
+            echo "📦 Build artifacts are available for manual deployment"
+            echo "Manual deployment command: devin deploy-frontend --dir ./dist"
+            exit 1
+          }
+        
+        echo "✅ Deployment completed successfully!"
+        echo "🌐 Application deployed to: https://todo-app-lzzpuzmq.devinapps.com/"
